@@ -1,5 +1,6 @@
 using Force.Crc32;
 using Serilog;
+using Serilog.Core;
 using SharpSteam;
 using System;
 using System.Collections.Generic;
@@ -29,23 +30,35 @@ namespace UWPHook
     {
         AppEntryModel Apps;
         BackgroundWorker bwrLoad;
+        static LoggingLevelSwitch levelSwitch = new LoggingLevelSwitch();
 
         public GamesWindow()
         {
             InitializeComponent();
-            Debug.WriteLine("Init GamesWindow");
+            Log.Debug("Init GamesWindow");
             Apps = new AppEntryModel();
             var args = Environment.GetCommandLineArgs();
+
+            // Init log file to AppData\Roaming\Briano\UWPHook directory with size rotation on 10Mb with max 5 files
+            System.Reflection.Assembly assembly = System.Reflection.Assembly.GetExecutingAssembly();
+            FileVersionInfo fvi = System.Diagnostics.FileVersionInfo.GetVersionInfo(assembly.Location);
+            string loggerFilePath = String.Join("\\", Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), fvi.CompanyName, fvi.ProductName, "application.log");
+
             Log.Logger = new LoggerConfiguration()
-            .MinimumLevel.Error()
-            .WriteTo.File("debug.log", rollingInterval: RollingInterval.Day)
+            .MinimumLevel.ControlledBy(levelSwitch)
+            .WriteTo.File(path: loggerFilePath, rollOnFileSizeLimit: true, fileSizeLimitBytes: 10485760, retainedFileCountLimit: 5)
+            .WriteTo.Console()
             .CreateLogger();
+
+            // Switch to Info by default to inform logger level in log file and switch to the correct log level
+            levelSwitch.MinimumLevel = Serilog.Events.LogEventLevel.Information;
+            SetLogLevel();
 
             // If null or 1, the app was launched normally
             if (args?.Length > 1)
             {
                 // When length is 1, the only argument is the path where the app is installed
-                 _ = LauncherAsync(args); // Launches the requested game
+                _ = LauncherAsync(args); // Launches the requested game
 
             }
             else
@@ -164,11 +177,11 @@ namespace UWPHook
                 await RestartSteam(restartSteam);
 
                 msg = "Your apps were successfuly exported!";
-                if(!restartSteam)
+                if (!restartSteam)
                 {
                     msg += " Please restart Steam in order to see them.";
                 }
-                else if(result)
+                else if (result)
                 {
                     msg += " Steam has been restarted.";
                 }
@@ -176,6 +189,7 @@ namespace UWPHook
             }
             catch (TaskCanceledException exception)
             {
+                Log.Error(exception.Message);
                 msg = exception.Message;
             }
 
@@ -202,8 +216,9 @@ namespace UWPHook
                 {
                     stream = client.OpenRead(imageUrl);
                 }
-                catch (Exception e)
+                catch (Exception exception)
                 {
+                    Log.Error(exception.Message);
                     //Image with error?
                     //Skip for now
                 }
@@ -216,7 +231,7 @@ namespace UWPHook
                     stream.Close();
                     client.Dispose();
                 }
-            });            
+            });
         }
 
         /// <summary>
@@ -224,16 +239,16 @@ namespace UWPHook
         /// </summary>
         /// <param name="user">The user path to copy images to</param>
         private void CopyTempGridImagesToSteamUser(string user)
-        {            
+        {
             string tmpGridDirectory = Path.GetTempPath() + "UWPHook\\tmp_grid\\";
             string userGridDirectory = user + "\\config\\grid\\";
-            
+
             // No images were downloaded, maybe the key is invalid or no app had an image
             if (!Directory.Exists(tmpGridDirectory))
             {
                 return;
             }
-            
+
             string[] images = Directory.GetFiles(tmpGridDirectory);
 
             if (!Directory.Exists(userGridDirectory))
@@ -269,7 +284,7 @@ namespace UWPHook
         {
             SteamGridDbApi api = new SteamGridDbApi(Properties.Settings.Default.SteamGridDbApiKey);
             string tmpGridDirectory = Path.GetTempPath() + "UWPHook\\tmp_grid\\";
-            GameResponse[] games;
+            GameResponse[] games = null;
 
             try
             {
@@ -277,13 +292,13 @@ namespace UWPHook
             }
             catch (TaskCanceledException exception)
             {
-                throw;
+                Log.Error(exception.Message);
             }
-            
+
             if (games != null)
             {
                 var game = games[0];
-                Debug.WriteLine("Detected Game: " + game.ToString());
+                Log.Verbose("Detected Game: " + game.ToString());
                 UInt64 gameId = GenerateSteamGridAppId(appName, appTarget);
 
                 if (!Directory.Exists(tmpGridDirectory))
@@ -296,7 +311,7 @@ namespace UWPHook
                 var gameHeroes = api.GetGameHeroes(game.Id);
                 var gameLogos = api.GetGameLogos(game.Id);
 
-                Debug.WriteLine("Game ID: " + game.Id);
+                Log.Verbose("Game ID: " + game.Id);
 
                 await Task.WhenAll(
                     gameGridsVertical,
@@ -360,7 +375,7 @@ namespace UWPHook
                 List<Task> gridImagesDownloadTasks = new List<Task>();
                 bool downloadGridImages = !String.IsNullOrEmpty(Properties.Settings.Default.SteamGridDbApiKey);
                 //To make things faster, decide icons and download grid images before looping users
-                Debug.WriteLine("downloadGridImages: " + (downloadGridImages));
+                Log.Verbose("downloadGridImages: " + (downloadGridImages));
 
                 foreach (var app in selected_apps)
                 {
@@ -368,11 +383,13 @@ namespace UWPHook
 
                     if (downloadGridImages)
                     {
-                        Debug.WriteLine("Downloading grid images for app " + app.Name);
+                        Log.Verbose("Downloading grid images for app " + app.Name);
 
                         gridImagesDownloadTasks.Add(DownloadTempGridImages(app.Name, exePath));
                     }
                 }
+
+                await Task.WhenAll(gridImagesDownloadTasks);
 
                 // Export the selected apps and the downloaded images to each user
                 // in the steam folder by modifying it's VDF file
@@ -390,6 +407,7 @@ namespace UWPHook
                             //If it's a short VDF, let's just overwrite it
                             if (ex.GetType() != typeof(VDFTooShortException))
                             {
+                                Log.Error("Error: Program failed to load existing Steam shortcuts." + Environment.NewLine + ex.Message);
                                 throw new Exception("Error: Program failed to load existing Steam shortcuts." + Environment.NewLine + ex.Message);
                             }
                         }
@@ -398,7 +416,26 @@ namespace UWPHook
                         {
                             foreach (var app in selected_apps)
                             {
-                                string icon = PersistAppIcon(app);
+                                try
+                                {
+
+                                    app.Icon = PersistAppIcon(app);
+                                    Log.Verbose("Defaulting to app.Icon for app " + app.Name);
+
+                                }
+                                catch (System.IO.IOException)
+                                {
+                                    Log.Verbose("Using backup icon for app " + app.Name);
+
+                                    await Task.Run(() =>
+                                    {
+                                        string tmpGridDirectory = Path.GetTempPath() + "UWPHook\\tmp_grid\\";
+                                        string[] images = Directory.GetFiles(tmpGridDirectory);
+
+                                        UInt64 gameId = GenerateSteamGridAppId(app.Name, exePath);
+                                        app.Icon = PersistAppIcon(app, tmpGridDirectory + gameId + "_logo.png");
+                                    });
+                                }
 
                                 VDFEntry newApp = new VDFEntry()
                                 {
@@ -408,7 +445,7 @@ namespace UWPHook
                                     LaunchOptions = app.Aumid + " " + app.Executable,
                                     AllowDesktopConfig = 1,
                                     AllowOverlay = 1,
-                                    Icon = icon,
+                                    Icon = app.Icon,
                                     Index = shortcuts.Length,
                                     IsHidden = 0,
                                     OpenVR = 0,
@@ -421,13 +458,13 @@ namespace UWPHook
                                 Boolean isFound = false;
                                 for (int i = 0; i < shortcuts.Length; i++)
                                 {
-                                    Debug.WriteLine(shortcuts[i].ToString());
-                                    
+                                    Log.Verbose(shortcuts[i].ToString());
+
 
                                     if (shortcuts[i].AppName == app.Name)
                                     {
                                         isFound = true;
-                                        Debug.WriteLine(app.Name + " already added to Steam. Updating existing shortcut.");
+                                        Log.Verbose(app.Name + " already added to Steam. Updating existing shortcut.");
                                         shortcuts[i] = newApp;
                                     }
                                 }
@@ -451,12 +488,14 @@ namespace UWPHook
                             }
                             catch (Exception ex)
                             {
+                                Log.Error("Error: Program failed while trying to write your Steam shortcuts" + Environment.NewLine + ex.Message);
                                 throw new Exception("Error: Program failed while trying to write your Steam shortcuts" + Environment.NewLine + ex.Message);
                             }
                         }
                     }
                     catch (Exception ex)
                     {
+                        Log.Error("Error: Program failed exporting your games:" + Environment.NewLine + ex.Message + ex.StackTrace);
                         MessageBox.Show("Error: Program failed exporting your games:" + Environment.NewLine + ex.Message + ex.StackTrace);
                     }
                 }
@@ -484,22 +523,41 @@ namespace UWPHook
         /// Copies an apps icon to a intermediate location
         /// Due to some apps changing the icon location when they update, which causes icons to be "lost"
         /// </summary>
-        /// <param name="app">App to copy the icon from</param>
-        /// <returns></returns>
-        private string PersistAppIcon(AppEntry app)
+        /// <param name="app">App to copy the icon to</param>
+        /// <param name="forcedIcon">Overwrites the app.icon to be copied</param>
+        /// <returns>string, the path to the usable and persisted icon</returns>
+        private string PersistAppIcon(AppEntry app, string forcedIcon = "")
         {
             string path = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            string icons_path = path + @"\\Briano\\UWPHook\\icons\\";
+            string icons_path = path + @"\Briano\UWPHook\icons\";
+
+            // If we do not have an specific icon to copy, copy app.icon, if we do, copy the specified icon
+            string icon_to_copy = String.IsNullOrEmpty(forcedIcon) ? app.Icon : forcedIcon;
 
             if (!Directory.Exists(icons_path))
             {
                 Directory.CreateDirectory(icons_path);
             }
 
-            string destFile = String.Join(String.Empty, icons_path+ @"\\", app.Aumid + Path.GetFileName(app.Icon));
-            File.Copy(app.Icon, destFile, true);
+            string dest_file = String.Join(String.Empty, icons_path, app.Aumid + Path.GetFileName(icon_to_copy));
+            try
+            {
+                if (File.Exists(icon_to_copy))
+                {
+                    File.Copy(icon_to_copy, dest_file, true);
+                }
+                else
+                {
+                    dest_file = app.Icon;
+                }
+            }
+            catch (System.IO.IOException e)
+            {
+                Log.Warning(e, "Could not copy icon " + app.Icon);
+                throw e;
+            }
 
-            return destFile;
+            return dest_file;
         }
 
         /// <summary>
@@ -517,7 +575,7 @@ namespace UWPHook
                 string steamExe = steam.MainModule.FileName;
 
                 //we always ask politely
-                Debug.WriteLine("Requesting Steam shutdown");
+                Log.Debug("Requesting Steam shutdown");
                 Process.Start(steamExe, "-exitsteam");
 
                 bool restarted = false;
@@ -531,7 +589,7 @@ namespace UWPHook
                     await Task.Delay(TimeSpan.FromSeconds(0.5f));
                     if (getSteam() == null)
                     {
-                        Debug.WriteLine("Restarting Steam");
+                        Log.Debug("Restarting Steam");
                         Process.Start(steamExe);
                         restarted = true;
                         break;
@@ -540,14 +598,14 @@ namespace UWPHook
 
                 if (!restarted)
                 {
-                    Debug.WriteLine("Steam instance not restarted");
+                    Log.Debug("Steam instance not restarted");
                     MessageBox.Show("Failed to restart Steam, please launch it manually", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return false;
                 }
             }
             else
             {
-                Debug.WriteLine("Steam instance not found to be restarted");
+                Log.Debug("Steam instance not found to be restarted");
             }
 
             return true;
@@ -555,7 +613,7 @@ namespace UWPHook
 
         public static void ClearAllShortcuts()
         {
-            Debug.WriteLine("DBG: Clearing all elements in shortcuts.vdf");
+            Log.Debug("Clearing all elements in shortcuts.vdf");
             string[] tags = Settings.Default.Tags.Split(',');
             string steam_folder = SteamManager.GetSteamFolder();
 
@@ -582,11 +640,13 @@ namespace UWPHook
                         }
                         catch (Exception ex)
                         {
+                            Log.Error("Error: Program failed while trying to write your Steam shortcuts" + Environment.NewLine + ex.Message);
                             throw new Exception("Error: Program failed while trying to write your Steam shortcuts" + Environment.NewLine + ex.Message);
                         }
                     }
                     catch (Exception ex)
                     {
+                        Log.Error("Error: Program failed while trying to clear your Steam shortcuts:" + Environment.NewLine + ex.Message + ex.StackTrace);
                         MessageBox.Show("Error: Program failed while trying to clear your Steam shortcuts:" + Environment.NewLine + ex.Message + ex.StackTrace);
                     }
                 }
@@ -679,6 +739,7 @@ namespace UWPHook
             }
             catch (Exception ex)
             {
+                Log.Error(ex.Message);
                 MessageBox.Show(ex.Message, "UWPHook", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -730,6 +791,25 @@ namespace UWPHook
                 {
                     SettingsButton_Click(this, null);
                 }
+            }
+        }
+
+        public static void SetLogLevel()
+        {
+            switch (Settings.Default.SelectedLogLevel)
+            {
+                case 1:
+                    Log.Information("Init log with DEBUG level.");
+                    levelSwitch.MinimumLevel = Serilog.Events.LogEventLevel.Debug;
+                    break;
+                case 2:
+                    Log.Information("Init log with TRACE level.");
+                    levelSwitch.MinimumLevel = Serilog.Events.LogEventLevel.Verbose;
+                    break;
+                default:
+                    Log.Information("Init log with ERROR level.");
+                    levelSwitch.MinimumLevel = Serilog.Events.LogEventLevel.Error;
+                    break;
             }
         }
     }
