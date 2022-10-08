@@ -20,6 +20,9 @@ using UWPHook.Properties;
 using UWPHook.SteamGridDb;
 using VDFParser;
 using VDFParser.Models;
+using System.Windows.Controls;
+using System.Windows.Data;
+using System.Windows.Media.Imaging;
 
 namespace UWPHook
 {
@@ -380,8 +383,6 @@ namespace UWPHook
 
                 foreach (var app in selected_apps)
                 {
-                    app.Icon = app.widestSquareIcon();
-
                     if (downloadGridImages)
                     {
                         Log.Verbose("Downloading grid images for app " + app.Name);
@@ -417,25 +418,29 @@ namespace UWPHook
                         {
                             foreach (var app in selected_apps)
                             {
-                                try
+                                string icon = "";
+                                if (gridImagesDownloadTasks.Count > 0)
                                 {
-
-                                    app.Icon = PersistAppIcon(app);
-                                    Log.Verbose("Defaulting to app.Icon for app " + app.Name);
-
-                                }
-                                catch (System.IO.IOException)
-                                {
-                                    Log.Verbose("Using backup icon for app " + app.Name);
+                                    await Task.WhenAll(gridImagesDownloadTasks);
 
                                     await Task.Run(() =>
                                     {
                                         string tmpGridDirectory = Path.GetTempPath() + "UWPHook\\tmp_grid\\";
                                         string[] images = Directory.GetFiles(tmpGridDirectory);
 
-                                        UInt64 gameId = GenerateSteamGridAppId(app.Name, exePath);
-                                        app.Icon = PersistAppIcon(app, tmpGridDirectory + gameId + "_logo.png");
+                                        foreach (string image in images)
+                                        {
+                                            if (image.EndsWith("_logo.png"))
+                                            {
+                                                icon = PersistAppIcon(app, image);
+                                                break;
+                                            }
+                                        }
                                     });
+                                }
+                                else
+                                {
+                                    icon = PersistAppIcon(app);
                                 }
 
                                 VDFEntry newApp = new VDFEntry()
@@ -446,7 +451,7 @@ namespace UWPHook
                                     LaunchOptions = app.Aumid + " " + app.Executable,
                                     AllowDesktopConfig = 1,
                                     AllowOverlay = 1,
-                                    Icon = app.Icon,
+                                    Icon = icon,
                                     Index = shortcuts.Length,
                                     IsHidden = 0,
                                     OpenVR = 0,
@@ -533,7 +538,7 @@ namespace UWPHook
             string icons_path = path + @"\Briano\UWPHook\icons\";
 
             // If we do not have an specific icon to copy, copy app.icon, if we do, copy the specified icon
-            string icon_to_copy = String.IsNullOrEmpty(forcedIcon) ? app.Icon : forcedIcon;
+            string icon_to_copy = String.IsNullOrEmpty(forcedIcon) ? app.IconPath : forcedIcon;
 
             if (!Directory.Exists(icons_path))
             {
@@ -543,19 +548,45 @@ namespace UWPHook
             string dest_file = String.Join(String.Empty, icons_path, app.Aumid + Path.GetFileName(icon_to_copy));
             try
             {
-                if (File.Exists(icon_to_copy))
-                {
-                    File.Copy(icon_to_copy, dest_file, true);
-                }
-                else
-                {
-                    dest_file = app.Icon;
-                }
+                System.Drawing.Image image = System.Drawing.Image.FromFile(icon_to_copy);
+                image.Save(dest_file);
+                image.Dispose();
             }
-            catch (System.IO.IOException e)
+            catch (System.IO.IOException)
             {
-                Log.Warning(e, "Could not copy icon " + app.Icon);
-                throw e;
+                // but this app is now prone to #90 unfortunately, if we return String.empty, Steam will default
+                // to UWPHook's icon
+                Log.Warning("File could not be copied: " + icon_to_copy);
+
+                try
+                {
+                    if (File.GetAttributes(icon_to_copy).HasFlag(FileAttributes.Directory))
+                    {
+                        System.Drawing.Size size = new System.Drawing.Size(0, 0);
+                        System.Drawing.Image currentImage = null;
+
+                        foreach (var image in (Directory.GetFiles(icon_to_copy, "*.png")))
+                        {
+                            currentImage = System.Drawing.Image.FromFile(image);
+                            if (currentImage != null)
+                            {
+                                //UWP apps usually store live tile images inside the same directory
+                                //Let's check if the image is square for use as icon on Steam and pick the largest one
+                                if (currentImage.Width == currentImage.Height && (size.Height == 0 || (currentImage.Size.Height < size.Height)))
+                                {
+                                    size = currentImage.Size;
+                                    dest_file = image;
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    Log.Error("Path is not a directory and could not be read: " + icon_to_copy);
+                    Log.Verbose(e.Message);
+                    dest_file = "";
+                }
             }
 
             return dest_file;
@@ -667,7 +698,6 @@ namespace UWPHook
             bwrLoad.RunWorkerCompleted += Bwr_RunWorkerCompleted;
 
             grid.IsEnabled = false;
-            label.Content = "Loading your installed apps";
 
             progressBar.Visibility = Visibility.Visible;
             Apps.Entries = new System.Collections.ObjectModel.ObservableCollection<AppEntry>();
@@ -684,12 +714,8 @@ namespace UWPHook
         {
             listGames.ItemsSource = Apps.Entries;
 
-            listGames.Columns[2].IsReadOnly = true;
-            listGames.Columns[3].IsReadOnly = true;
-
             grid.IsEnabled = true;
-            progressBar.Visibility = Visibility.Hidden;
-            label.Content = "Installed Apps";
+            progressBar.Visibility = Visibility.Collapsed;
         }
 
         /// <summary>
@@ -716,31 +742,6 @@ namespace UWPHook
                 //Rejoin them in the original list, but putting them into last
                 installedApps = installedApps.Union(nameNotFound).ToList<String>();
 
-                //Get already installed apps from Steam Library
-                string steam_folder = SteamManager.GetSteamFolder();
-                VDFEntry[] vdf = new VDFEntry[0];
-
-                if (Directory.Exists(steam_folder))
-                {
-                    var users = SteamManager.GetUsers(steam_folder);
-
-                    foreach (var user in users)
-                    {
-                        try
-                        {
-                            if (Directory.Exists(user + @"\\config\\"))
-                            {
-                                vdf = VDFParser.VDFParser.Parse(user + @"\\config\\shortcuts.vdf");
-                                break;
-                            }
-                        }
-                        catch (Exception ex) when (!(ex is System.IO.FileNotFoundException) || !(ex is VDFParser.VDFTooShortException))
-                        {
-                            throw new Exception("Error: Program failed while trying to read your Steam shortcuts" + Environment.NewLine + ex.Message);
-                        }
-                    }
-                }
-
                 foreach (var app in installedApps)
                 {
                     //Remove end lines from the String and split both values, I split the appname and the AUMID using |
@@ -750,22 +751,64 @@ namespace UWPHook
                     if (values.Length >= 3 && AppManager.IsKnownApp(values[2], out string readableName))
                     {
                         values[0] = readableName;
-                        Log.Verbose("readableName => " + readableName);
                     }
 
                     if (!String.IsNullOrWhiteSpace(values[0]))
                     {
-                        Log.Verbose("vdf => " + vdf.Length);
-                        if (vdf.Length > 0 && Array.Exists(vdf, entry => entry.AppName == values[0])) {
-                            Log.Debug(values[0] + " is already installed !");
+                        //We get the default square tile to find where the app stores it's icons, then we resolve which one is the widest
+                        string logosPath = Path.GetDirectoryName(values[1]);
+
+                        BitmapImage appLogo = null;
+                        List<string> images = new List<string>();
+                        System.Drawing.Size size = new System.Drawing.Size(0, 0);
+
+                        try
+                        {
+                            images.AddRange(Directory.GetFiles(logosPath, "*.png"));
+                        }
+                        catch (System.Exception ex)
+                        {
+                            Log.Error(ex.Message);
                             continue;
                         }
 
-                        //We get the default square tile to find where the app stores it's icons, then we resolve which one is the widest
-                        string logosPath = Path.GetDirectoryName(values[1]);
+                        if (images.Count > 0)
+                        {
+                            System.Drawing.Image currentImage = null;
+
+                            foreach (string image in images)
+                            {
+                                try
+                                {
+                                    currentImage = System.Drawing.Image.FromFile(image);
+                                }
+                                catch (System.Exception ex)
+                                {
+                                    Log.Error(ex.Message);
+                                }
+
+                                if (currentImage != null)
+                                {
+                                    //UWP apps usually store live tile images inside the same directory
+                                    //Let's check if the image is square for use as icon on Steam and pick the largest one
+                                    if (currentImage.Width == currentImage.Height && (size.Height == 0 || (currentImage.Size.Height < size.Height)))
+                                    {
+                                        size = currentImage.Size;
+                                        appLogo = new BitmapImage();
+                                        appLogo.BeginInit();
+                                        appLogo.CacheOption = BitmapCacheOption.OnLoad;
+                                        appLogo.UriSource = new Uri(image);
+                                        appLogo.EndInit();
+
+                                    }
+                                    currentImage.Dispose();
+                                }
+                            }
+                        }
+                        appLogo.Freeze();
                         Application.Current.Dispatcher.BeginInvoke((Action)delegate ()
                         {
-                            Apps.Entries.Add(new AppEntry() { Name = values[0], Executable = values[3], IconPath = logosPath, Aumid = values[2], Selected = false });
+                            Apps.Entries.Add(new AppEntry() { Name = values[0], Icon = appLogo, Executable = values[3], IconPath = logosPath, Aumid = values[2], Selected = false });
                         });
                     }
                 }

@@ -2,8 +2,8 @@
 using System.ComponentModel;
 using System.Drawing;
 using System.IO;
-using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Windows.Media.Imaging;
 
 namespace UWPHook
 {
@@ -24,6 +24,16 @@ namespace UWPHook
             }
         }
 
+
+        private BitmapImage _icon;
+        /// <summary>
+        /// Gets or sets the icon for the app
+        /// </summary>
+        public BitmapImage Icon
+        {
+            get { return _icon; }
+            set { _icon = value;  }
+        }
 
         private string _name;
         /// <summary>
@@ -54,18 +64,6 @@ namespace UWPHook
             get { return _aumid; }
             set { _aumid = value; }
         }
-
-        /// <summary>
-        /// Gets or sets the icon for the app
-        /// </summary>
-        private string _icon;
-
-        public string Icon
-        {
-            get { return _icon; }
-            set { _icon = value; }
-        }
-
 
         /// <summary>
         /// Sets the path where icons for the app is 
