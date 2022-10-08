@@ -60,7 +60,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="SharpSteam">
-      <HintPath>..\..\SharpSteam\SharpSteam\bin\Release\SharpSteam.dll</HintPath>
+      <HintPath>Resources\SharpSteam.dll</HintPath>
     </Reference>
     <Reference Include="System">
       <HintPath>..\..\..\..\..\..\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.6.2\System.dll</HintPath>
@@ -82,7 +82,7 @@
       <RequiredTargetFramework>4.0</RequiredTargetFramework>
     </Reference>
     <Reference Include="VDFParser">
-      <HintPath>..\..\SharpSteam\SharpSteam\bin\Release\VDFParser.dll</HintPath>
+      <HintPath>Resources\VDFParser.dll</HintPath>
     </Reference>
     <Reference Include="WindowsBase" />
     <Reference Include="PresentationCore" />
@@ -151,9 +151,6 @@
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
     </None>
     <AppDesigner Include="Properties\" />
-    <EmbeddedResource Include="Resources\KnownApps.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
@@ -161,7 +158,7 @@
   <ItemGroup>
     <BootstrapperPackage Include=".NETFramework,Version=v4.6.1">
       <Visible>False</Visible>
-      <ProductName>Microsoft .NET Framework 4.6.1 %28x86 and x64%29</ProductName>
+      <ProductName>Microsoft .NET Framework 4.6.1 %28x86 et x64%29</ProductName>
       <Install>true</Install>
     </BootstrapperPackage>
     <BootstrapperPackage Include="Microsoft.Net.Framework.3.5.SP1">
@@ -171,9 +168,7 @@
     </BootstrapperPackage>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Resources\GetAUMIDScript.ps1">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </EmbeddedResource>
+    <EmbeddedResource Include="Resources\GetAUMIDScript.ps1" />
   </ItemGroup>
   <ItemGroup>
     <Resource Include="Resources\WhiteTransparent.png" />

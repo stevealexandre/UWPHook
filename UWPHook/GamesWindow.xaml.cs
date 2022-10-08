@@ -773,12 +773,6 @@ namespace UWPHook
                     //I hope no apps have that in their name. Ever.
                     var values = app.Replace("\r\n", "").Split('|');
 
-                    if (values.Length >= 3 && AppManager.IsKnownApp(values[2], out string readableName))
-                    {
-                        values[0] = readableName;
-                        Log.Verbose("readableName => " + readableName);
-                    }
-
                     if (!String.IsNullOrWhiteSpace(values[0]))
                     {
                         Log.Verbose("vdf => " + vdf.Length);
