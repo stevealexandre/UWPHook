@@ -52,7 +52,7 @@
                 <DataGridTextColumn CanUserResize="False" CanUserSort="False" CanUserReorder="False" Header="Aumid" IsReadOnly="False" Visibility="Hidden" Binding="{Binding Path=Aumid}"/>
             </DataGrid.Columns>
         </DataGrid>
-        <ProgressBar Visibility="Hidden" x:Name="progressBar" Grid.Row="1" IsIndeterminate="True" Grid.ColumnSpan="3" Margin="10"/>
+        <ProgressBar Visibility="Hidden" x:Name="progressBar" Grid.Row="1" IsIndeterminate="True" Grid.ColumnSpan="3" Margin="10" Style="{StaticResource MaterialDesignCircularProgressBar}" Value="50" Height="100" Width="100"/>
         <!-- FOOTER -->
         <Grid Grid.Row="2" Grid.ColumnSpan="3">
             <Grid.ColumnDefinitions>
