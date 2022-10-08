@@ -152,7 +152,7 @@
     </None>
     <AppDesigner Include="Properties\" />
     <EmbeddedResource Include="Resources\KnownApps.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
@@ -171,7 +171,9 @@
     </BootstrapperPackage>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Resources\GetAUMIDScript.ps1" />
+    <EmbeddedResource Include="Resources\GetAUMIDScript.ps1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
     <Resource Include="Resources\WhiteTransparent.png" />

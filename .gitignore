@@ -269,3 +269,5 @@ __pycache__/
 ./Setup/Setup-cache
 Setup/UWPHook.exe
 *.exe
+/UWP Installer project/UWP Installer project-cache
+/UWP Installer project/UWP Installer project-SetupFiles
