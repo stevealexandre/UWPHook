@@ -448,7 +448,7 @@ namespace UWPHook
                                     AppName = app.Name,
                                     Exe = exePath,
                                     StartDir = exeDir,
-                                    LaunchOptions = app.Aumid,
+                                    LaunchOptions = app.Aumid + " " + app.Executable,
                                     AllowDesktopConfig = 1,
                                     AllowOverlay = 1,
                                     Icon = icon,
@@ -759,9 +759,9 @@ namespace UWPHook
                                 break;
                             }
                         }
-                        catch (Exception ex) when (!(ex is System.IO.FileNotFoundException) || !(ex is VDFParser.VDFTooShortException))
+                        catch (Exception ex)
                         {
-                            throw new Exception("Error: Program failed while trying to read your Steam shortcuts" + Environment.NewLine + ex.Message);
+                            Log.Warning("Error while trying to read your Steam shortcuts " + Environment.NewLine + ex.Message);
                         }
                     }
                 }
