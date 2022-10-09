@@ -1,24 +1,26 @@
+### This is a fork from the original project [UWPHook](https://briano.dev/UWPHook/) of BrianLima that I maintain on my side following some issues and the unavailability of him.
+All properties of the source code belong to BrianLima.
+
 # UWPHook
 
 [![](http://imgur.com/gWwR02D.png)](https://briano.dev/UWPHook/)
 
 Small project to link UWP games and XboxGamePass to Steam
 
-If you want to add Windows Store or Xbox Game Pass Games to Steam, you need to do a bit of a warkaround because Steam can't see UWP apps, and there's a chance Steam won't show it on your "Currently playing" status. This app aims to simplify a little bit the process where it is possible by automating the scripting and launching of Windows Store apps and Xbox Game Pass games.
+Since it's not possible to run directly an XBOX Games to Steam, this application will act as a middleware. 
+While your game is running through this application via the steam shortcut created by the application, it will showing you "playin as [game]" for your friends.
 
 # To add UWP or XGP games to Steam #
 
-[Download the latest version of UWPHook](https://github.com/BrianLima/UWPHook/releases) and store it somewhere on your PC.
-
-Click on the 🔄 to load installed UWP Apps, we will find every UWP app and Xbox Game Pass game installed on your PC.
+[Download the latest version of UWPHook](https://github.com/stevealexandre/UWPHook/releases) and install it on your PC.
 
 ![](https://i.imgur.com/pjGfGHe.png)
 
-Select every app you want to add to Steam, you can change the name by double clicking the "name" collumn, press "Export selected apps to Steam" and 🎉, every app you selected will be added to Steam.
+Select every app you want to add to Steam and press "Export selected apps to Steam", every app you selected will be added to Steam and your Steam will be automatically restart with your new games added.
 
 ![](https://i.imgur.com/on46CMQ.png)
 
-Close UWPHook, restart Steam if prompted, click play on your UWP game, and Steam will show your current game on your status as long as you are playing it!
+Close UWPHook, click play on your UWP game, and Steam will show your current game on your status as long as you are playing it!
 
 ----------
 
@@ -47,8 +49,8 @@ Special thanks to @FusRoDah061 for implementing the base feature!
 - **Steam Controller isn't working**
   - Another limitation by Steam, some people reported it works with "Desktop Mode" configuration, but i can't verify this.
 - **My question isn't listed here!**
-  - Drop by our subreddit and ask a question over there, maybe someone will help you, i surely will as soon as i can
- **[https://www.reddit.com/r/uwphook](https://www.reddit.com/r/uwphook)**
+  - Ask a question over there, maybe someone will help you, i surely will as soon as i can
+ **[https://github.com/stevealexandre/UWPHook/issues)**
 
 ----------
 
@@ -56,8 +58,6 @@ Special thanks to @FusRoDah061 for implementing the base feature!
 
 - Clone project or forked project.
 - Install Visual Studio 2019 with .NET Framework 4.6.2.
-- Install [SharpSteam by BrianLima](https://github.com/BrianLima/SharpSteam/releases/) and [VDFParser by heyvito](https://github.com/heyvito/VDFParser).
-- Add the above two dll to the project in Visual Studio Reference Manager.
 - Press run!
 
 ----------
