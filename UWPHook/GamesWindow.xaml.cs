@@ -585,7 +585,6 @@ namespace UWPHook
                 {
                     Log.Error("Path is not a directory and could not be read: " + icon_to_copy);
                     Log.Verbose(e.Message);
-                    dest_file = "";
                 }
             }
 
