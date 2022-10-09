@@ -448,7 +448,7 @@ namespace UWPHook
                                     AppName = app.Name,
                                     Exe = exePath,
                                     StartDir = exeDir,
-                                    LaunchOptions = app.Aumid + " " + app.Executable,
+                                    LaunchOptions = app.Aumid,
                                     AllowDesktopConfig = 1,
                                     AllowOverlay = 1,
                                     Icon = icon,
@@ -812,6 +812,7 @@ namespace UWPHook
                                 catch (System.Exception ex)
                                 {
                                     Log.Error(ex.Message);
+                                    continue;
                                 }
 
                                 if (currentImage != null)

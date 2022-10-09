@@ -36,8 +36,6 @@ namespace UWPHook
             // 1 is the aumid,
             // 2 is the executable, the rest are extras
             string aumid = args[1];
-            executablePath = args[2].Contains("/") ? args[2].Replace('/', '\\') : args[2];
-            executableName = args[2].Contains("/") ? args[2].Substring(args[2].LastIndexOf("/") + 1) : args[2];
             Log.Verbose("Arguments => " + String.Join("/", args));
 
             string extra_args = String.Join(" ", args.Skip(3).Take(args.Length - 3).Select(eachElement => eachElement.Clone()).ToArray());
@@ -50,6 +48,7 @@ namespace UWPHook
                 processStartInfo.FileName = @"shell:appsFolder\" + aumid;
                 process.StartInfo = processStartInfo;
                 process.Start();
+                runningProcessId = process.Id;
 
                 //Bring the launched app to the foreground, this fixes in-home streaming
                 BringProcess();
