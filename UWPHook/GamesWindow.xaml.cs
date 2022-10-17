@@ -313,7 +313,7 @@ namespace UWPHook
                 var gameGridsVertical = api.GetGameGrids(game.Id, "600x900,342x482,660x930");
                 var gameGridsHorizontal = api.GetGameGrids(game.Id, "460x215,920x430");
                 var gameHeroes = api.GetGameHeroes(game.Id);
-                var gameLogos = api.GetGameLogos(game.Id);
+                var gameLogos = api.GetGameGrids(game.Id, "1024x1024");
 
                 Log.Verbose("Game ID: " + game.Id);
 
@@ -389,34 +389,31 @@ namespace UWPHook
 
                         gridImagesDownloadTasks.Add(DownloadTempGridImages(app.Name, exePath));
                     }
-                }
 
-                await Task.WhenAll(gridImagesDownloadTasks);
+                    await Task.WhenAll(gridImagesDownloadTasks);
 
-                // Export the selected apps and the downloaded images to each user
-                // in the steam folder by modifying it's VDF file
-                foreach (var user in users)
-                {
-                    try
+                    // Export the selected apps and the downloaded images to each user
+                    // in the steam folder by modifying it's VDF file
+                    foreach (var user in users)
                     {
-                        VDFEntry[] shortcuts = new VDFEntry[0];
                         try
                         {
-                            shortcuts = SteamManager.ReadShortcuts(user);
-                        }
-                        catch (Exception ex)
-                        {
-                            //If it's a short VDF, let's just overwrite it
-                            if (ex.GetType() != typeof(VDFTooShortException))
+                            VDFEntry[] shortcuts = new VDFEntry[0];
+                            try
                             {
-                                Log.Error("Error: Program failed to load existing Steam shortcuts." + Environment.NewLine + ex.Message);
-                                throw new Exception("Error: Program failed to load existing Steam shortcuts." + Environment.NewLine + ex.Message);
+                                shortcuts = SteamManager.ReadShortcuts(user);
                             }
-                        }
+                            catch (Exception ex)
+                            {
+                                //If it's a short VDF, let's just overwrite it
+                                if (ex.GetType() != typeof(VDFTooShortException))
+                                {
+                                    Log.Error("Error: Program failed to load existing Steam shortcuts." + Environment.NewLine + ex.Message);
+                                    throw new Exception("Error: Program failed to load existing Steam shortcuts." + Environment.NewLine + ex.Message);
+                                }
+                            }
 
-                        if (shortcuts != null)
-                        {
-                            foreach (var app in selected_apps)
+                            if (shortcuts != null)
                             {
                                 string icon = "";
                                 if (gridImagesDownloadTasks.Count > 0)
@@ -481,44 +478,44 @@ namespace UWPHook
                                     Array.Resize(ref shortcuts, shortcuts.Length + 1);
                                     shortcuts[shortcuts.Length - 1] = newApp;
                                 }
-                            }
 
-                            try
-                            {
-                                if (!Directory.Exists(user + @"\\config\\"))
+                                try
                                 {
-                                    Directory.CreateDirectory(user + @"\\config\\");
+                                    if (!Directory.Exists(user + @"\\config\\"))
+                                    {
+                                        Directory.CreateDirectory(user + @"\\config\\");
+                                    }
+                                    //Write the file with all the shortcuts
+                                    File.WriteAllBytes(user + @"\\config\\shortcuts.vdf", VDFSerializer.Serialize(shortcuts));
                                 }
-                                //Write the file with all the shortcuts
-                                File.WriteAllBytes(user + @"\\config\\shortcuts.vdf", VDFSerializer.Serialize(shortcuts));
-                            }
-                            catch (Exception ex)
-                            {
-                                Log.Error("Error: Program failed while trying to write your Steam shortcuts" + Environment.NewLine + ex.Message);
-                                throw new Exception("Error: Program failed while trying to write your Steam shortcuts" + Environment.NewLine + ex.Message);
+                                catch (Exception ex)
+                                {
+                                    Log.Error("Error: Program failed while trying to write your Steam shortcuts" + Environment.NewLine + ex.Message);
+                                    throw new Exception("Error: Program failed while trying to write your Steam shortcuts" + Environment.NewLine + ex.Message);
+                                }
                             }
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Error("Error: Program failed exporting your games:" + Environment.NewLine + ex.Message + ex.StackTrace);
-                        MessageBox.Show("Error: Program failed exporting your games:" + Environment.NewLine + ex.Message + ex.StackTrace);
-                    }
-                }
-
-                if (gridImagesDownloadTasks.Count > 0)
-                {
-                    await Task.WhenAll(gridImagesDownloadTasks);
-
-                    await Task.Run(() =>
-                    {
-                        foreach (var user in users)
+                        catch (Exception ex)
                         {
-                            CopyTempGridImagesToSteamUser(user);
+                            Log.Error("Error: Program failed exporting your games:" + Environment.NewLine + ex.Message + ex.StackTrace);
+                            MessageBox.Show("Error: Program failed exporting your games:" + Environment.NewLine + ex.Message + ex.StackTrace);
                         }
+                    }
 
-                        RemoveTempGridImages();
-                    });
+                    if (gridImagesDownloadTasks.Count > 0)
+                    {
+                        await Task.WhenAll(gridImagesDownloadTasks);
+
+                        await Task.Run(() =>
+                        {
+                            foreach (var user in users)
+                            {
+                                CopyTempGridImagesToSteamUser(user);
+                            }
+
+                            RemoveTempGridImages();
+                        });
+                    }
                 }
             }
 
